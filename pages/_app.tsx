@@ -20,6 +20,8 @@ import IconSprite from "@/token/IconSprite";
 import "@/token/tokens.css";
 import "@/index.scss";
 import { BlurHashProvider } from "@/components/BlurHashContext";
+import "../components/command-menu.scss";
+import "../components/cosmos-toolbar.scss";
 
 initStoryblok(process.env.NEXT_STORYBLOK_API_TOKEN);
 if (typeof window !== "undefined") {
@@ -81,7 +83,7 @@ export default function App({
               fallbackName={story?.name}
             />
             <IconSprite />
-            {headerProps && (
+            {headerProps && !router.asPath.includes("graph") && (
               <Header
                 logo={{}}
                 {...headerProps}
@@ -90,7 +92,7 @@ export default function App({
               />
             )}
             <Component {...pageProps} />
-            {footerProps && (
+            {footerProps && !router.asPath.includes("graph") && (
               <Footer logo={{}} {...footerProps} inverted={invertFooter} />
             )}
           </ImageSizeProviders>

@@ -4,12 +4,28 @@ import {
   DirectedVertex,
 } from "directed-graph-typed";
 import { FullCustomPropertyValues } from "custom-property-extract/dist/types";
+import { Attributes, SerializedGraph } from "graphology-types";
 
 export type VertexKey = string | number;
 export type IEdgeData = {
   selector: string;
   purpose: string;
 };
+export interface GraphologyNodeType {
+  x: number;
+  y: number;
+  label: string;
+  size: number;
+  color: string;
+}
+export interface GraphologyEdgeType {
+  type?: string;
+  label?: string;
+  size?: number;
+  curvature?: number;
+  parallelIndex?: number;
+  parallelMaxIndex?: number;
+}
 export class CssCustomPropertyVertex<
   V = FullCustomPropertyValues
 > extends DirectedVertex<V> {
@@ -135,6 +151,50 @@ export class CssCustomPropertyDirectedGraph<
 
     return connectedGraph;
   }
+
+  public getGraphologySerialized(): SerializedGraph<
+    GraphologyNodeType,
+    GraphologyEdgeType,
+    Attributes
+  > {
+    return {
+      attributes: { name: "CSS Custom Properties" },
+      options: {
+        allowSelfLoops: false,
+        multi: true,
+        type: "directed",
+      },
+      nodes: Array.from(this.vertexMap.values()).map((vertex) => {
+        return {
+          key: vertex.key.toString(),
+          attributes: {
+            x: Math.random(),
+            y: Math.random(),
+            size: 4,
+            color: vertex.key.toString().startsWith("--ks-")
+              ? "#ecff00"
+              : vertex.key.toString().startsWith("--dsa-")
+              ? "#e21879"
+              : "#00F218",
+            label: vertex.key.toString(),
+          },
+        };
+      }),
+      edges: Array.from(this.edgeSet().values()).map((edge) => {
+        return {
+          source: edge.src.toString(),
+          target: edge.dest.toString(),
+          attributes: isIEdgeData(edge.value)
+            ? {
+                ...edge.value,
+                label: edge.value.selector,
+                color: "#0294C1",
+              }
+            : {},
+        };
+      }),
+    };
+  }
 }
 
 export function deepMerge<T extends Record<string, any>>(obj1: T, obj2: T): T {
@@ -165,4 +225,8 @@ export function deepMerge<T extends Record<string, any>>(obj1: T, obj2: T): T {
 
     return acc;
   }, {} as any) as T;
+}
+
+export function isIEdgeData(data: any): data is IEdgeData {
+  return data && data.selector && data.purpose;
 }

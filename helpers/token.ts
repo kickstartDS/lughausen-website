@@ -184,6 +184,4 @@ export const sectionWidthRems: SectionWidths = {
 
 export const getSectionWidth = (
   sectionWidthName: keyof SectionWidths
-): number => {
-  return sectionWidthRems[sectionWidthName];
-};
+): number => sectionWidthRems[sectionWidthName];
