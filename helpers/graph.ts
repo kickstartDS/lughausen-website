@@ -17,6 +17,7 @@ export interface GraphologyNodeType {
   label: string;
   size: number;
   color: string;
+  community?: string;
 }
 export interface GraphologyEdgeType {
   type?: string;

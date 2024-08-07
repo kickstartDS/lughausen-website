@@ -11,11 +11,13 @@ const sigmaStyle = {
 export const DisplayGraph = () => {
   const isBrowser = () => typeof window !== "undefined";
   if (isBrowser()) {
-    const TokenGraphContainer = dynamic(
-      import("../components/TokenGraph").then((mod) => mod.TokenGraphContainer),
+    const CosmosTokenGraph = dynamic(
+      import("../components/cosmos/CosmosTokenGraph").then(
+        (mod) => mod.CosmosTokenGraph
+      ),
       { ssr: false }
     );
-    return <TokenGraphContainer style={sigmaStyle} />;
+    return <CosmosTokenGraph style={sigmaStyle} />;
   } else return null;
 };
 

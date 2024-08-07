@@ -5,7 +5,7 @@ import { bfsFromNode } from "graphology-traversal/bfs";
 import { useCallback, useEffect, useState } from "react";
 import { CameraState, Coordinates, NodeDisplayData } from "sigma/types";
 
-const CommandMenu = () => {
+const CosmosCommandMenu = () => {
   const [open, setOpen] = useState(false);
   const [cameraState, setCameraState] = useState<CameraState | null>(null);
   const registerEvents = useRegisterEvents();
@@ -118,4 +118,4 @@ const CommandMenu = () => {
   );
 };
 
-export default CommandMenu;
+export default CosmosCommandMenu;
