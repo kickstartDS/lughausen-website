@@ -1,77 +1,54 @@
 import { useState } from "react";
 import { normal } from "color-blend";
 import * as Toolbar from "@radix-ui/react-toolbar";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import {
+  BoxModelIcon,
+  PaddingIcon,
+  MarginIcon,
+  DesktopIcon,
+  LaptopIcon,
+  MobileIcon,
+  ScissorsIcon,
+  ReloadIcon,
+  DashboardIcon,
+  MixIcon,
+} from "@radix-ui/react-icons";
 import iwanthue from "iwanthue";
 import hexRgb from "hex-rgb";
 import rgbHex from "rgb-hex";
 
-import Graph from "graphology";
 import louvain from "graphology-communities-louvain";
-import { forEachConnectedComponent } from "graphology-components";
 import { Sigma } from "sigma";
 import { Attributes } from "graphology-types";
 import { useSigmaContext } from "@react-sigma/core";
-import { NodeDisplayData } from "sigma/types";
 import { bindWebGLLayer, createContoursProgram } from "@sigma/layer-webgl";
 
 import { GraphologyEdgeType, GraphologyNodeType } from "@/helpers/graph";
-import { useLayoutForceAtlas2 } from "@react-sigma/layout-forceatlas2";
-import { useCosmosGraphContext } from "./CosmosGraphContext";
+import { isBreakpointState, useCosmosGraphContext } from "../GraphContext";
+import BreakpointRadioItem from "./components/BreakpointRadioItem";
+import BreakpointIcon from "./components/BreakpointIcon";
+import IconTooltip from "./components/IconTooltip";
+import {
+  background,
+  getCommunityName,
+  hexRgbToRgba,
+  rgbaToString,
+} from "../helpers";
 
-export function wordFreq(string: string) {
-  return string
-    .replace(/[.]/g, "")
-    .split(/\s/)
-    .reduce<Record<string, number>>(
-      (map, word) =>
-        Object.assign(map, {
-          [word]: map[word] ? map[word] + 1 : 1,
-        }),
-      {}
-    );
-}
-
-export function getCommunityName(
-  graph: Graph<GraphologyNodeType, GraphologyEdgeType>,
-  community: string
-) {
-  const communityNodes = graph.filterNodes(
-    (_, attr) => attr.community === community
-  );
-  const communityNameInput = communityNodes
-    .map((communityNode) =>
-      communityNode
-        .replaceAll("--", " ")
-        .replaceAll("__", " ")
-        .replaceAll("-", " ")
-        .replaceAll("_", " ")
-        .trim()
-    )
-    .join(" ");
-  const communityNameFrequency = wordFreq(communityNameInput);
-  const communityName = Object.keys(communityNameFrequency)
-    .sort((a, b) => communityNameFrequency[b] - communityNameFrequency[a])
-    .slice(0, 3)
-    .join(" ");
-  return communityName;
-}
-
-const CosmosToolbar = () => {
+const CosmosMainToolbar = () => {
   const { sigma } = useSigmaContext<GraphologyNodeType, GraphologyEdgeType>();
-  const [ksHidden, setKsHidden] = useState(false);
-  const [showCommunities, setShowCommunities] = useState(false);
-  const { setCurrentGraphName } = useCosmosGraphContext();
-  const { assign } = useLayoutForceAtlas2({
-    iterations: 100,
-    outputReducer: (node, data) => {
-      if (data.hidden) {
-        return null;
-      }
-      return data;
-    },
-  });
+  const { setInvertedState, breakpointState, setBreakpointState } =
+    useCosmosGraphContext();
 
-  const graph = sigma.getGraph();
+  const [showCommunities, setShowCommunities] = useState(false);
+  const {
+    currentGraphName,
+    setCurrentGraphName,
+    graph,
+    automaticRelayout,
+    setAutomaticRelayout,
+  } = useCosmosGraphContext();
 
   const toggleCommunities = () => {
     if (showCommunities) {
@@ -131,17 +108,7 @@ const CosmosToolbar = () => {
         ) as HTMLInputElement;
 
         let clean: null | (() => void) = null;
-        const background = { r: 2, g: 53, b: 66, a: 1 };
-        const rgbaToString = (rgba: {
-          r: number;
-          g: number;
-          b: number;
-          a: number;
-        }) => `#${rgbHex(rgba.r, rgba.g, rgba.b)}`;
-        const hexRgbToRgba = (hex: string, alpha: number = 0) => {
-          const { red: r, green: g, blue: b, alpha: a } = hexRgb(hex);
-          return { r, g, b, a: alpha };
-        };
+
         const toggle = () => {
           if (clean) {
             clean();
@@ -242,29 +209,145 @@ const CosmosToolbar = () => {
   };
 
   const toggleHide = () => {
-    !ksHidden
+    !(currentGraphName === "design-system")
       ? setCurrentGraphName("design-system")
       : setCurrentGraphName("full");
-    setKsHidden(!ksHidden);
+  };
+
+  const setBreakpoint = (breakpoint: string) => {
+    if (isBreakpointState(breakpoint)) setBreakpointState(breakpoint);
   };
 
   return (
-    <div className="ToolbarWrapper">
-      <Toolbar.Root className="ToolbarRoot" aria-label="Cosmos options">
+    <div className="MainToolbarWrapper">
+      <Toolbar.Root className="ToolbarRoot" aria-label="General Settings">
+        <Toolbar.Button className="ToolbarButton">
+          <IconTooltip Icon={MixIcon} text="Focus component" />
+        </Toolbar.Button>
+        <Toolbar.Separator className="ToolbarSeparator" />
         <Toolbar.Button onClick={toggleCommunities} className="ToolbarButton">
-          {showCommunities ? "Hide Communities" : "Show Communities"}
+          <IconTooltip Icon={DashboardIcon} text="Toggle communities" />
         </Toolbar.Button>
         <Toolbar.Separator className="ToolbarSeparator" />
-        <Toolbar.Button className="ToolbarButton" onClick={assign}>
-          Relayout
-        </Toolbar.Button>
+        <Toolbar.ToggleGroup
+          className="ToolbarToggleGroup"
+          type="multiple"
+          aria-label="Automatic relayout"
+          onValueChange={() => setAutomaticRelayout(!automaticRelayout)}
+        >
+          <Toolbar.ToggleItem
+            className="ToolbarToggleItem"
+            value="automatic"
+            aria-label="Activate automatic relayout"
+          >
+            <IconTooltip Icon={ReloadIcon} text="Activate automatic relayout" />
+          </Toolbar.ToggleItem>
+        </Toolbar.ToggleGroup>
         <Toolbar.Separator className="ToolbarSeparator" />
-        <Toolbar.Button className="ToolbarButton" onClick={toggleHide}>
-          {ksHidden ? "Show KS" : "Hide KS"}
-        </Toolbar.Button>
+        <Toolbar.ToggleGroup
+          className="ToolbarToggleGroup"
+          type="multiple"
+          aria-label="Show ksDS"
+          onValueChange={toggleHide}
+        >
+          <Toolbar.ToggleItem
+            className="ToolbarToggleItem"
+            value="ksds"
+            aria-label="Hide unconnected"
+          >
+            <IconTooltip
+              Icon={ScissorsIcon}
+              text="Hide unconnected ksDS token"
+            />
+          </Toolbar.ToggleItem>
+        </Toolbar.ToggleGroup>
+        <Toolbar.Separator className="ToolbarSeparator" />
+        <Toolbar.ToggleGroup
+          className="ToolbarToggleGroup"
+          type="single"
+          defaultValue="both"
+          aria-label="Inverted"
+          onValueChange={setInvertedState}
+        >
+          <Toolbar.ToggleItem
+            className="ToolbarToggleItem"
+            value="both"
+            aria-label="Both"
+          >
+            <IconTooltip
+              Icon={BoxModelIcon}
+              text="Display both default and inverted states"
+            />
+          </Toolbar.ToggleItem>
+
+          <Toolbar.ToggleItem
+            className="ToolbarToggleItem"
+            value="default"
+            aria-label="Default"
+          >
+            <IconTooltip Icon={MarginIcon} text="Display default state" />
+          </Toolbar.ToggleItem>
+
+          <Toolbar.ToggleItem
+            className="ToolbarToggleItem"
+            value="inverted"
+            aria-label="Inverted"
+          >
+            <IconTooltip Icon={PaddingIcon} text="Display inverted state" />
+          </Toolbar.ToggleItem>
+        </Toolbar.ToggleGroup>
+        <Toolbar.Separator className="ToolbarSeparator" />
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <Toolbar.Button
+              className="ToolbarButton"
+              style={{ marginLeft: "auto" }}
+            >
+              <BreakpointIcon name={breakpointState} />
+            </Toolbar.Button>
+          </DropdownMenu.Trigger>
+
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              className="DropdownMenuContent"
+              sideOffset={15}
+            >
+              <DropdownMenu.Label className="DropdownMenuLabel">
+                Choose breakpoint
+              </DropdownMenu.Label>
+              <DropdownMenu.RadioGroup
+                value={breakpointState}
+                onValueChange={setBreakpoint}
+              >
+                <BreakpointRadioItem name="All" value="all" />
+                <BreakpointRadioItem
+                  name="Desktop"
+                  value="desktop"
+                  Icon={DesktopIcon}
+                />
+                <BreakpointRadioItem
+                  name="Laptop"
+                  value="laptop"
+                  Icon={LaptopIcon}
+                />
+                <BreakpointRadioItem
+                  name="Tablet"
+                  value="tablet"
+                  Icon={MobileIcon}
+                />
+                <BreakpointRadioItem
+                  name="Phone"
+                  value="phone"
+                  Icon={MobileIcon}
+                />
+              </DropdownMenu.RadioGroup>
+              <DropdownMenu.Arrow className="DropdownMenuArrow" />
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </Toolbar.Root>
     </div>
   );
 };
 
-export default CosmosToolbar;
+export default CosmosMainToolbar;

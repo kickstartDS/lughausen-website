@@ -4,7 +4,7 @@ import {
   DirectedVertex,
 } from "directed-graph-typed";
 import { FullCustomPropertyValues } from "custom-property-extract/dist/types";
-import { Attributes, SerializedGraph } from "graphology-types";
+import { SerializedGraph } from "graphology-types";
 
 export type VertexKey = string | number;
 export type IEdgeData = {
@@ -155,8 +155,7 @@ export class CssCustomPropertyDirectedGraph<
 
   public getGraphologySerialized(): SerializedGraph<
     GraphologyNodeType,
-    GraphologyEdgeType,
-    Attributes
+    GraphologyEdgeType
   > {
     return {
       attributes: { name: "CSS Custom Properties" },
