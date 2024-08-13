@@ -150,46 +150,58 @@ export const CosmosGraphProvider: FC<
 
       const discoverNodes = (
         startNode: string,
-        direction: (typeof ancestryStates)[number]
+        direction: (typeof ancestryStates)[number],
+        level: number = 0
       ) => {
-        if (direction === "both" || direction === "descendents")
+        if (direction === "both" || direction === "descendents") {
           bfsFromNode(
             graph,
             startNode,
-            (node, _attrs, depth) => {
-              console.log("discoverNodes", depth, ancestryLevel);
-              if (!nodes.has(node)) {
-                nodes.add(node);
-
-                if (depth <= ancestryLevel) discoverNodes(node, direction);
-              }
+            (node, _attrs) => {
+              if (!nodes.has(node)) nodes.add(node);
             },
             {
               mode: "outbound",
             }
           );
 
-        if (direction === "both" || direction === "ascendents")
+          if (level < ancestryLevel) {
+            for (const node of Array.from(nodes)) {
+              if (node === startNode) continue;
+              for (const additionalNode of graph.inboundNeighbors(node)) {
+                if (!nodes.has(additionalNode))
+                  discoverNodes(additionalNode, direction, level + 1);
+              }
+            }
+          }
+        }
+
+        if (direction === "both" || direction === "ascendents") {
           bfsFromNode(
             graph,
             startNode,
-            (node, _attrs, depth) => {
-              console.log("discoverNodes", depth, ancestryLevel);
-              if (!nodes.has(node)) {
-                nodes.add(node);
-
-                if (depth <= ancestryLevel) discoverNodes(node, direction);
-              }
+            (node, _attrs) => {
+              if (!nodes.has(node)) nodes.add(node);
             },
             {
               mode: "inbound",
             }
           );
+
+          if (level < ancestryLevel) {
+            for (const node of Array.from(nodes)) {
+              if (node === startNode) continue;
+              for (const additionalNode of graph.outboundNeighbors(node)) {
+                if (!nodes.has(additionalNode))
+                  discoverNodes(additionalNode, direction, level + 1);
+              }
+            }
+          }
+        }
       };
+
       discoverNodes(selectedToken, ancestryState);
-      // bfsFromNode(graph, selectedToken, (node) => {
-      //   nodes.add(node);
-      // });
+
       sigma.setSetting("nodeReducer", (node, data) => {
         const res: Partial<NodeDisplayData> = { ...data };
         if (!nodes.has(node) && automaticRelayout) {
@@ -223,12 +235,22 @@ export const CosmosGraphProvider: FC<
       const nodePosition = sigma.getNodeDisplayData(
         selectedToken
       ) as Coordinates;
-      const targetCameraState = {
-        x: nodePosition.x,
-        y: nodePosition.y,
-        ratio: 0.1,
-        angle: 0,
-      };
+      const currentCameraState = camera.getState();
+      const targetCameraState =
+        currentCameraState.ratio === initialCameraState.ratio &&
+        currentCameraState.angle === initialCameraState.angle
+          ? {
+              x: nodePosition.x,
+              y: nodePosition.y,
+              ratio: 0.1,
+              angle: 0,
+            }
+          : {
+              x: nodePosition.x,
+              y: nodePosition.y,
+              ratio: currentCameraState.ratio,
+              angle: currentCameraState.angle,
+            };
       if (!equalCameraState(cameraState, targetCameraState))
         setCameraState(targetCameraState);
     }
@@ -241,6 +263,7 @@ export const CosmosGraphProvider: FC<
     assign,
     ancestryLevel,
     ancestryState,
+    camera,
   ]);
 
   return (

@@ -15,8 +15,6 @@ import {
   MixIcon,
 } from "@radix-ui/react-icons";
 import iwanthue from "iwanthue";
-import hexRgb from "hex-rgb";
-import rgbHex from "rgb-hex";
 
 import louvain from "graphology-communities-louvain";
 import { Sigma } from "sigma";
@@ -109,6 +107,9 @@ const CosmosMainToolbar = () => {
 
         let clean: null | (() => void) = null;
 
+        const levelThresholds = [0.3, 2, 4, 8, 10, 15, 21];
+        const levelAlphas = [0.5, 0.45, 0.4, 0.3, 0.2, 0.15, 0.1];
+
         const toggle = () => {
           if (clean) {
             clean();
@@ -127,71 +128,20 @@ const CosmosMainToolbar = () => {
                     ),
                     thickness: 1,
                   },
-                  levels: [
-                    {
+                  levels: levelThresholds.reduce<
+                    { color?: string | undefined; threshold: number }[]
+                  >((acc, threshold, index) => {
+                    acc.push({
                       color: rgbaToString(
                         normal(
                           background,
-                          hexRgbToRgba(palette[community], 0.5)
+                          hexRgbToRgba(palette[community], levelAlphas[index])
                         )
                       ),
-                      threshold: 0.3,
-                    },
-                    {
-                      color: rgbaToString(
-                        normal(
-                          background,
-                          hexRgbToRgba(palette[community], 0.45)
-                        )
-                      ),
-                      threshold: 2,
-                    },
-                    {
-                      color: rgbaToString(
-                        normal(
-                          background,
-                          hexRgbToRgba(palette[community], 0.4)
-                        )
-                      ),
-                      threshold: 4,
-                    },
-                    {
-                      color: rgbaToString(
-                        normal(
-                          background,
-                          hexRgbToRgba(palette[community], 0.3)
-                        )
-                      ),
-                      threshold: 8,
-                    },
-                    {
-                      color: rgbaToString(
-                        normal(
-                          background,
-                          hexRgbToRgba(palette[community], 0.2)
-                        )
-                      ),
-                      threshold: 10,
-                    },
-                    {
-                      color: rgbaToString(
-                        normal(
-                          background,
-                          hexRgbToRgba(palette[community], 0.15)
-                        )
-                      ),
-                      threshold: 15,
-                    },
-                    {
-                      color: rgbaToString(
-                        normal(
-                          background,
-                          hexRgbToRgba(palette[community], 0.1)
-                        )
-                      ),
-                      threshold: 21,
-                    },
-                  ],
+                      threshold,
+                    });
+                    return acc;
+                  }, []),
                 }
               )
             );

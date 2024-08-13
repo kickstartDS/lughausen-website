@@ -44,7 +44,7 @@ const CosmosTokenToolbar = () => {
               className="Input"
               type="text"
               id="token"
-              defaultValue={selectedToken}
+              value={selectedToken}
             />
           </div>
           <Toolbar.Separator className="ToolbarSeparator" />
