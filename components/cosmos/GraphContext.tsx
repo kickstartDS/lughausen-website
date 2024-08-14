@@ -8,6 +8,7 @@ import {
 } from "react";
 import { GraphologyEdgeType, GraphologyNodeType } from "@/helpers/graph";
 import Graph from "graphology";
+import louvain from "graphology-communities-louvain";
 import { bfsFromNode } from "graphology-traversal/bfs";
 import {
   CameraState,
@@ -22,7 +23,18 @@ import {
   indexParallelEdgesIndex,
 } from "@sigma/edge-curve";
 import { normal } from "color-blend";
-import { background, hexRgbToRgba, rgbaToString } from "./helpers";
+import {
+  background,
+  getCommunityName,
+  hexRgbToRgba,
+  rgbaToString,
+} from "./helpers";
+
+export type CommunityCount = {
+  count: number;
+  name: string;
+  index: number;
+};
 
 export const initialCameraState = { x: 0.5, y: 0.5, angle: 0, ratio: 1 };
 export const ancestryStates = ["both", "ascendents", "descendents"] as const;
@@ -66,6 +78,12 @@ const CosmosGraphContext = createContext<
       setInvertedState: (value: (typeof invertedStates)[number]) => void;
       ancestryLevel: number;
       setAncestryLevel: (value: number) => void;
+      communities: Record<string, CommunityCount>;
+      setCommunities: (communities: Record<string, CommunityCount>) => void;
+      activeComponents: Set<string>;
+      setActiveComponents: (components: Set<string>) => void;
+      components: Record<string, GraphologyNodeType[]>;
+      setComponents: (components: Record<string, GraphologyNodeType[]>) => void;
     }
   | undefined
 >(undefined);
@@ -85,6 +103,17 @@ export const CosmosGraphProvider: FC<
       return data;
     },
   });
+
+  const [communities, setCommunities] = useState<
+    Record<string, CommunityCount>
+  >({});
+
+  const [components, setComponents] = useState<
+    Record<string, GraphologyNodeType[]>
+  >({});
+  const [activeComponents, setActiveComponents] = useState<Set<string>>(
+    new Set<string>()
+  );
 
   const [currentGraphName, setCurrentGraphName] = useState<string>("full");
   const graph = props.graphs[currentGraphName];
@@ -108,6 +137,39 @@ export const CosmosGraphProvider: FC<
         graph.setEdgeAttribute(edge, "type", "straight");
       }
     });
+
+    louvain.assign(graph, { nodeCommunityAttribute: "community" });
+
+    const newCommunities: Record<string, CommunityCount> = {};
+    const newComponents: Record<string, GraphologyNodeType[]> = {};
+
+    graph.forEachNode((node, attrs) => {
+      if (attrs.community) {
+        const communityName = getCommunityName(graph, attrs.community);
+        const communityKey = communityName.replace(/ /g, "-");
+        newCommunities[communityKey] = {
+          count: (newCommunities[communityKey]?.count || 0) + 1,
+          name: communityName,
+          index: parseInt(attrs.community),
+        };
+      }
+
+      const matches = Array.from(
+        node.matchAll(/--dsa-((?:[a-zA-Z]+-)*[a-zA-Z]+)/g)
+      );
+      if (
+        matches &&
+        matches.length > 0 &&
+        attrs.selectors.some((selector) =>
+          selector.startsWith(`.dsa-${matches[0][1]}`)
+        )
+      ) {
+        newComponents[`.dsa-${matches[0][1]}`] ||= [];
+        newComponents[`.dsa-${matches[0][1]}`].push(attrs);
+      }
+    });
+    setCommunities(newCommunities);
+    setComponents(newComponents);
 
     loadGraph(graph);
     assign();
@@ -136,72 +198,59 @@ export const CosmosGraphProvider: FC<
   }, [camera, cameraState]);
 
   useEffect(() => {
-    if (selectedToken === "") {
-      sigma.setSetting("nodeReducer", null);
-      sigma.setSetting("edgeReducer", null);
-      sigma.refresh({
-        skipIndexation: true,
-      });
-      if (automaticRelayout) assign();
-      if (!equalCameraState(cameraState, initialCameraState))
-        setCameraState(initialCameraState);
-    } else {
-      const nodes = new Set<string>();
+    const nodes = new Set<string>();
+    const discoverNodes = (
+      startNode: string,
+      direction: (typeof ancestryStates)[number],
+      level: number = 0
+    ) => {
+      if (direction === "both" || direction === "descendents") {
+        bfsFromNode(
+          graph,
+          startNode,
+          (node, _attrs) => {
+            if (!nodes.has(node)) nodes.add(node);
+          },
+          {
+            mode: "outbound",
+          }
+        );
 
-      const discoverNodes = (
-        startNode: string,
-        direction: (typeof ancestryStates)[number],
-        level: number = 0
-      ) => {
-        if (direction === "both" || direction === "descendents") {
-          bfsFromNode(
-            graph,
-            startNode,
-            (node, _attrs) => {
-              if (!nodes.has(node)) nodes.add(node);
-            },
-            {
-              mode: "outbound",
-            }
-          );
-
-          if (level < ancestryLevel) {
-            for (const node of Array.from(nodes)) {
-              if (node === startNode) continue;
-              for (const additionalNode of graph.inboundNeighbors(node)) {
-                if (!nodes.has(additionalNode))
-                  discoverNodes(additionalNode, direction, level + 1);
-              }
+        if (level < ancestryLevel) {
+          for (const node of Array.from(nodes)) {
+            if (node === startNode) continue;
+            for (const additionalNode of graph.inboundNeighbors(node)) {
+              if (!nodes.has(additionalNode))
+                discoverNodes(additionalNode, direction, level + 1);
             }
           }
         }
+      }
 
-        if (direction === "both" || direction === "ascendents") {
-          bfsFromNode(
-            graph,
-            startNode,
-            (node, _attrs) => {
-              if (!nodes.has(node)) nodes.add(node);
-            },
-            {
-              mode: "inbound",
-            }
-          );
+      if (direction === "both" || direction === "ascendents") {
+        bfsFromNode(
+          graph,
+          startNode,
+          (node, _attrs) => {
+            if (!nodes.has(node)) nodes.add(node);
+          },
+          {
+            mode: "inbound",
+          }
+        );
 
-          if (level < ancestryLevel) {
-            for (const node of Array.from(nodes)) {
-              if (node === startNode) continue;
-              for (const additionalNode of graph.outboundNeighbors(node)) {
-                if (!nodes.has(additionalNode))
-                  discoverNodes(additionalNode, direction, level + 1);
-              }
+        if (level < ancestryLevel) {
+          for (const node of Array.from(nodes)) {
+            if (node === startNode) continue;
+            for (const additionalNode of graph.outboundNeighbors(node)) {
+              if (!nodes.has(additionalNode))
+                discoverNodes(additionalNode, direction, level + 1);
             }
           }
         }
-      };
-
-      discoverNodes(selectedToken, ancestryState);
-
+      }
+    };
+    const reduceNodes = () => {
       sigma.setSetting("nodeReducer", (node, data) => {
         const res: Partial<NodeDisplayData> = { ...data };
         if (!nodes.has(node) && automaticRelayout) {
@@ -232,6 +281,12 @@ export const CosmosGraphProvider: FC<
         skipIndexation: true,
       });
       if (automaticRelayout) assign();
+    };
+
+    if (selectedToken !== "") {
+      discoverNodes(selectedToken, ancestryState);
+      reduceNodes();
+
       const nodePosition = sigma.getNodeDisplayData(
         selectedToken
       ) as Coordinates;
@@ -253,6 +308,23 @@ export const CosmosGraphProvider: FC<
             };
       if (!equalCameraState(cameraState, targetCameraState))
         setCameraState(targetCameraState);
+    } else if (activeComponents.size > 0) {
+      for (const activeComponent of Array.from(activeComponents)) {
+        for (const token of components[activeComponent]) {
+          discoverNodes(token.label, ancestryState);
+        }
+      }
+
+      reduceNodes();
+    } else {
+      sigma.setSetting("nodeReducer", null);
+      sigma.setSetting("edgeReducer", null);
+      sigma.refresh({
+        skipIndexation: true,
+      });
+      if (automaticRelayout) assign();
+      if (!equalCameraState(cameraState, initialCameraState))
+        setCameraState(initialCameraState);
     }
   }, [
     selectedToken,
@@ -264,6 +336,8 @@ export const CosmosGraphProvider: FC<
     ancestryLevel,
     ancestryState,
     camera,
+    activeComponents,
+    components,
   ]);
 
   return (
@@ -286,6 +360,12 @@ export const CosmosGraphProvider: FC<
         setInvertedState,
         ancestryLevel,
         setAncestryLevel,
+        communities,
+        setCommunities,
+        activeComponents,
+        setActiveComponents,
+        components,
+        setComponents,
       }}
     >
       {props.children}

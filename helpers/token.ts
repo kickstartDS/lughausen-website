@@ -5,6 +5,8 @@ import {
   FullCustomPropertyValues,
   FullExtractResult,
 } from "custom-property-extract/dist/types";
+import { CommunityCount } from "@/components/cosmos/GraphContext";
+import iwanthue from "iwanthue";
 
 type Breakpoints = {
   phone: number;
@@ -185,3 +187,32 @@ export const sectionWidthRems: SectionWidths = {
 export const getSectionWidth = (
   sectionWidthName: keyof SectionWidths
 ): number => sectionWidthRems[sectionWidthName];
+
+export const levelThresholds = [0.3, 2, 4, 8, 10, 15, 21];
+export const levelAlphas = [0.5, 0.45, 0.4, 0.3, 0.2, 0.15, 0.1];
+export const getPalette = (communitiesArray: CommunityCount[]) => {
+  const palette: Record<string, string> = iwanthue(communitiesArray.length, {
+    colorSpace: "intense",
+    seed: "cool-palette",
+    quality: 100,
+  }).reduce(
+    (iter, color, i) => ({
+      ...iter,
+      [communitiesArray[i].index]: color,
+    }),
+    {}
+  );
+
+  return palette;
+};
+
+export const toTitleCase = (str: string) => {
+  return str.replace(
+    /\w\S*/g,
+    (text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase()
+  );
+};
+
+export const getComponentName = (selector: string) => {
+  return toTitleCase(selector.replaceAll(".dsa-", "").replaceAll("-", " "));
+};

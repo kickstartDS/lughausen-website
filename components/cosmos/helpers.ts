@@ -47,6 +47,7 @@ export function getCommunityName(
         .replaceAll("__", " ")
         .replaceAll("-", " ")
         .replaceAll("_", " ")
+        .replaceAll(/[0-9]{1,2}/g, "")
         .trim()
     )
     .join(" ");
@@ -54,7 +55,7 @@ export function getCommunityName(
   const communityName = Object.keys(communityNameFrequency)
     .sort((a, b) => communityNameFrequency[b] - communityNameFrequency[a])
     .slice(0, 3)
-    .join(" ");
+    .join("/");
   return communityName;
 }
 

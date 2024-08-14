@@ -10,8 +10,13 @@ import {
 import IconTooltip from "./components/IconTooltip";
 
 const CosmosTokenToolbar = () => {
-  const { selectedToken, ancestryLevel, setAncestryLevel, setAncestryState } =
-    useCosmosGraphContext();
+  const {
+    selectedToken,
+    ancestryLevel,
+    setAncestryLevel,
+    setAncestryState,
+    activeComponents,
+  } = useCosmosGraphContext();
 
   const increaseAncestryLevel = () => {
     setAncestryLevel(ancestryLevel + 1);
@@ -25,28 +30,46 @@ const CosmosTokenToolbar = () => {
     if (isAncestryState(ancestry)) setAncestryState(ancestry);
   };
 
-  if (selectedToken && selectedToken.length > 0) {
+  if (
+    (selectedToken && selectedToken.length > 0) ||
+    activeComponents.size > 0
+  ) {
     return (
       <div className="TokenToolbarWrapper">
         <Toolbar.Root className="ToolbarRoot" aria-label="Token Settings">
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 10,
-              alignItems: "center",
-            }}
-          >
-            <Label.Root className="LabelRoot" htmlFor="token">
-              Selected:
-            </Label.Root>
-            <input
-              className="Input"
-              type="text"
-              id="token"
-              value={selectedToken}
-            />
-          </div>
+          {selectedToken && selectedToken.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
+              <Label.Root className="LabelRoot" htmlFor="token">
+                Selected:
+              </Label.Root>
+              <input
+                className="Input"
+                type="text"
+                id="token"
+                value={selectedToken}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
+              <Label.Root className="LabelRoot" htmlFor="token">
+                Component mode
+              </Label.Root>
+            </div>
+          )}
           <Toolbar.Separator className="ToolbarSeparator" />
           <Toolbar.ToggleGroup
             className="ToolbarToggleGroup ToggleDirection"

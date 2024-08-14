@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { normal } from "color-blend";
 import * as Toolbar from "@radix-ui/react-toolbar";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -13,77 +13,109 @@ import {
   ReloadIcon,
   DashboardIcon,
   MixIcon,
+  CheckIcon,
 } from "@radix-ui/react-icons";
-import iwanthue from "iwanthue";
 
-import louvain from "graphology-communities-louvain";
 import { Sigma } from "sigma";
 import { Attributes } from "graphology-types";
 import { useSigmaContext } from "@react-sigma/core";
 import { bindWebGLLayer, createContoursProgram } from "@sigma/layer-webgl";
 
 import { GraphologyEdgeType, GraphologyNodeType } from "@/helpers/graph";
-import { isBreakpointState, useCosmosGraphContext } from "../GraphContext";
+import {
+  CommunityCount,
+  isBreakpointState,
+  useCosmosGraphContext,
+} from "../GraphContext";
 import BreakpointRadioItem from "./components/BreakpointRadioItem";
 import BreakpointIcon from "./components/BreakpointIcon";
 import IconTooltip from "./components/IconTooltip";
+import { background, hexRgbToRgba, rgbaToString } from "../helpers";
 import {
-  background,
-  getCommunityName,
-  hexRgbToRgba,
-  rgbaToString,
-} from "../helpers";
+  getComponentName,
+  getPalette,
+  levelAlphas,
+  levelThresholds,
+} from "@/helpers/token";
+import { NodeDisplayData } from "sigma/types";
 
 const CosmosMainToolbar = () => {
   const { sigma } = useSigmaContext<GraphologyNodeType, GraphologyEdgeType>();
-  const { setInvertedState, breakpointState, setBreakpointState } =
-    useCosmosGraphContext();
-
-  const [showCommunities, setShowCommunities] = useState(false);
   const {
+    setInvertedState,
+    breakpointState,
+    setBreakpointState,
     currentGraphName,
     setCurrentGraphName,
     graph,
     automaticRelayout,
     setAutomaticRelayout,
+    communities,
+    components,
+    activeComponents,
+    setActiveComponents,
   } = useCosmosGraphContext();
+
+  const [showCommunities, setShowCommunities] = useState(false);
+  const [filteredCommunities, setFilteredCommunities] = useState<
+    Record<string, CommunityCount>
+  >({});
+  const [activeCommunities, setActiveCommunities] = useState<Set<number>>(
+    new Set<number>()
+  );
+  const [palette, setPalette] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (communities) {
+      const filteredCommunities = Object.values(communities).filter(
+        (community) => community.count > 25
+      );
+      setFilteredCommunities(
+        filteredCommunities.reduce<Record<string, CommunityCount>>(
+          (acc, community) => {
+            acc[community.index] = community;
+            return acc;
+          },
+          {}
+        )
+      );
+    }
+  }, [communities]);
+
+  useEffect(() => {
+    if (filteredCommunities && Object.keys(filteredCommunities).length > 0)
+      setPalette(getPalette(Object.values(filteredCommunities)));
+  }, [filteredCommunities]);
+
+  const toggleComponent = (component: string) => {
+    const newActiveComponents = new Set(activeComponents);
+    if (activeComponents.has(component)) {
+      newActiveComponents.delete(component);
+    } else {
+      newActiveComponents.add(component);
+    }
+    setActiveComponents(newActiveComponents);
+  };
+
+  const toggleCommunity = (community: number) => {
+    const newActiveCommunities = new Set(activeCommunities);
+    if (activeCommunities.has(community)) {
+      newActiveCommunities.delete(community);
+    } else {
+      newActiveCommunities.add(community);
+    }
+    setActiveCommunities(newActiveCommunities);
+  };
 
   const toggleCommunities = () => {
     if (showCommunities) {
       sigma.setSetting("nodeReducer", null);
       setShowCommunities(false);
     } else {
-      louvain.assign(graph, { nodeCommunityAttribute: "community" });
-      const communities = new Set<string>();
-      const communitiesCount = new Map<number, number>();
-
-      graph.forEachNode((_, attrs) => {
-        if (attrs.community) {
-          communitiesCount.set(
-            parseInt(attrs.community),
-            (communitiesCount.get(parseInt(attrs.community)) || 0) + 1
-          );
-          communities.add(attrs.community);
-        }
-      });
-      const communitiesArray = Array.from(communities).filter((community) => {
-        return (communitiesCount.get(parseInt(community)) || 0) > 25;
-      });
-
-      const palette: Record<string, string> = iwanthue(
-        communitiesArray.length,
-        {
-          colorSpace: "intense",
-          seed: "cool-palette",
-          quality: 100,
-        }
-      ).reduce(
-        (iter, color, i) => ({
-          ...iter,
-          [communitiesArray[i]]: color,
-        }),
-        {}
+      const communitiesArray = Object.values(communities).filter(
+        (community) => community.count > 25
       );
+      const palette = getPalette(communitiesArray);
 
       const checkboxesContainer = document.createElement("div");
       checkboxesContainer.style.position = "absolute";
@@ -92,13 +124,14 @@ const CosmosMainToolbar = () => {
       document.body.append(checkboxesContainer);
 
       communitiesArray.forEach((community, index) => {
-        const id = `cb-${community}`;
+        const id = `cb-${community.index}`;
         const checkboxContainer = document.createElement("div");
 
-        const communityName = getCommunityName(graph, community);
         checkboxContainer.innerHTML += `
       <input type="checkbox" id="${id}" name="">
-      <label for="${id}" style="color:${palette[community]}">${communityName}</label>
+      <label for="${id}" style="color:${palette[community.index]}">${
+          community.name
+        }</label>
     `;
         checkboxesContainer.append(checkboxContainer);
         const checkbox = checkboxesContainer.querySelector(
@@ -106,9 +139,6 @@ const CosmosMainToolbar = () => {
         ) as HTMLInputElement;
 
         let clean: null | (() => void) = null;
-
-        const levelThresholds = [0.3, 2, 4, 8, 10, 15, 21];
-        const levelAlphas = [0.5, 0.45, 0.4, 0.3, 0.2, 0.15, 0.1];
 
         const toggle = () => {
           if (clean) {
@@ -119,12 +149,21 @@ const CosmosMainToolbar = () => {
               `community-${community}`,
               sigma as unknown as Sigma<Attributes, Attributes, Attributes>,
               createContoursProgram(
-                graph.filterNodes((_, attr) => attr.community === community),
+                graph.filterNodes((_, attr) => {
+                  if (
+                    attr.community &&
+                    parseInt(attr.community) === community.index
+                  )
+                    return true;
+                }),
                 {
                   radius: 100,
                   border: {
                     color: rgbaToString(
-                      normal(background, hexRgbToRgba(palette[community], 0.8))
+                      normal(
+                        background,
+                        hexRgbToRgba(palette[community.index], 0.8)
+                      )
                     ),
                     thickness: 1,
                   },
@@ -135,7 +174,10 @@ const CosmosMainToolbar = () => {
                       color: rgbaToString(
                         normal(
                           background,
-                          hexRgbToRgba(palette[community], levelAlphas[index])
+                          hexRgbToRgba(
+                            palette[community.index],
+                            levelAlphas[index]
+                          )
                         )
                       ),
                       threshold,
@@ -171,13 +213,82 @@ const CosmosMainToolbar = () => {
   return (
     <div className="MainToolbarWrapper">
       <Toolbar.Root className="ToolbarRoot" aria-label="General Settings">
-        <Toolbar.Button className="ToolbarButton">
-          <IconTooltip Icon={MixIcon} text="Focus component" />
-        </Toolbar.Button>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <Toolbar.Button
+              className="ToolbarButton"
+              style={{ marginLeft: "auto" }}
+            >
+              <IconTooltip Icon={MixIcon} text="Toggle components" />
+            </Toolbar.Button>
+          </DropdownMenu.Trigger>
+
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              className="DropdownMenuContent"
+              sideOffset={15}
+            >
+              <DropdownMenu.Label className="DropdownMenuLabel">
+                Choose components
+              </DropdownMenu.Label>
+
+              {Object.keys(components).map((component, index) => (
+                <DropdownMenu.CheckboxItem
+                  className="DropdownMenuCheckboxItem"
+                  checked={activeComponents.has(component)}
+                  onCheckedChange={() => toggleComponent(component)}
+                  key={index}
+                >
+                  <DropdownMenu.ItemIndicator className="DropdownMenuItemIndicator">
+                    <CheckIcon />
+                  </DropdownMenu.ItemIndicator>
+                  {getComponentName(component)}
+                </DropdownMenu.CheckboxItem>
+              ))}
+
+              <DropdownMenu.Arrow className="DropdownMenuArrow" />
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
         <Toolbar.Separator className="ToolbarSeparator" />
-        <Toolbar.Button onClick={toggleCommunities} className="ToolbarButton">
-          <IconTooltip Icon={DashboardIcon} text="Toggle communities" />
-        </Toolbar.Button>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <Toolbar.Button
+              className="ToolbarButton"
+              style={{ marginLeft: "auto" }}
+            >
+              <IconTooltip Icon={DashboardIcon} text="Toggle communities" />
+            </Toolbar.Button>
+          </DropdownMenu.Trigger>
+
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              className="DropdownMenuContent"
+              sideOffset={15}
+            >
+              <DropdownMenu.Label className="DropdownMenuLabel">
+                Choose communities
+              </DropdownMenu.Label>
+
+              {Object.values(filteredCommunities).map((community) => (
+                <DropdownMenu.CheckboxItem
+                  className="DropdownMenuCheckboxItem"
+                  style={{ color: palette[community.index] }}
+                  checked={activeCommunities.has(community.index)}
+                  onCheckedChange={() => toggleCommunity(community.index)}
+                  key={community.index}
+                >
+                  <DropdownMenu.ItemIndicator className="DropdownMenuItemIndicator">
+                    <CheckIcon />
+                  </DropdownMenu.ItemIndicator>
+                  {community.name}
+                </DropdownMenu.CheckboxItem>
+              ))}
+
+              <DropdownMenu.Arrow className="DropdownMenuArrow" />
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
         <Toolbar.Separator className="ToolbarSeparator" />
         <Toolbar.ToggleGroup
           className="ToolbarToggleGroup"

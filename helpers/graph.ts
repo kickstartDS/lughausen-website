@@ -18,6 +18,7 @@ export interface GraphologyNodeType {
   size: number;
   color: string;
   community?: string;
+  selectors: string[];
 }
 export interface GraphologyEdgeType {
   type?: string;
@@ -170,13 +171,18 @@ export class CssCustomPropertyDirectedGraph<
           attributes: {
             x: Math.random(),
             y: Math.random(),
-            size: 4,
+            size: 2,
             color: vertex.key.toString().startsWith("--ks-")
               ? "#ecff00"
               : vertex.key.toString().startsWith("--dsa-")
               ? "#e21879"
               : "#00F218",
             label: vertex.key.toString(),
+            selectors:
+              isFullCustomPropertyValues(vertex.value) &&
+              vertex.value.length > 0
+                ? vertex.value.map((value) => value.selector || "")
+                : [],
           },
         };
       }),
@@ -229,4 +235,10 @@ export function deepMerge<T extends Record<string, any>>(obj1: T, obj2: T): T {
 
 export function isIEdgeData(data: any): data is IEdgeData {
   return data && data.selector && data.purpose;
+}
+
+export function isFullCustomPropertyValues(
+  data: any
+): data is FullCustomPropertyValues {
+  return data && Array.isArray(data) && data.every((entry) => entry.value);
 }
