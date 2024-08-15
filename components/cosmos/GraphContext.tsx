@@ -397,11 +397,12 @@ export const CosmosGraphProvider: FC<
     ) => {
       const communityIndex = community.index.toString();
       if (
+        activeContours &&
         activeContours[communityIndex] &&
         activeContours[communityIndex] !== null &&
         typeof activeContours[communityIndex] === "function"
       ) {
-        activeContours[communityIndex]();
+        activeContours[communityIndex]!();
         const newActiveContours = { ...activeContours };
         newActiveContours[communityIndex] = null;
         setActiveContours(newActiveContours);
@@ -422,11 +423,12 @@ export const CosmosGraphProvider: FC<
     ) => {
       const newActiveContours = { ...activeContours };
       if (
+        activeContours &&
         activeContours[component] &&
         activeContours[component] !== null &&
         typeof activeContours[component] === "function"
       ) {
-        activeContours[component]();
+        activeContours[component]!();
         newActiveContours[component] = null;
         setActiveContours(newActiveContours);
       } else {
