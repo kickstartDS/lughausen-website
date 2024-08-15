@@ -421,7 +421,11 @@ export const CosmosGraphProvider: FC<
       palette: Record<string, string>
     ) => {
       const newActiveContours = { ...activeContours };
-      if (activeContours[component] && activeContours[component] !== null) {
+      if (
+        activeContours[component] &&
+        activeContours[component] !== null &&
+        typeof activeContours[component] === "function"
+      ) {
         activeContours[component]();
         newActiveContours[component] = null;
         setActiveContours(newActiveContours);
