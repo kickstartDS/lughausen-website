@@ -190,15 +190,15 @@ export const getSectionWidth = (
 
 export const levelThresholds = [0.3, 2, 4, 8, 10, 15, 21];
 export const levelAlphas = [0.5, 0.45, 0.4, 0.3, 0.2, 0.15, 0.1];
-export const getPalette = (communitiesArray: CommunityCount[]) => {
-  const palette: Record<string, string> = iwanthue(communitiesArray.length, {
+export const getPalette = (indexes: string[]) => {
+  const palette: Record<string, string> = iwanthue(indexes.length, {
     colorSpace: "intense",
     seed: "cool-palette",
     quality: 100,
   }).reduce(
     (iter, color, i) => ({
       ...iter,
-      [communitiesArray[i].index]: color,
+      [indexes[i]]: color,
     }),
     {}
   );

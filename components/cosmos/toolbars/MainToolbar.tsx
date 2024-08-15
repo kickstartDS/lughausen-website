@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-import { normal } from "color-blend";
 import * as Toolbar from "@radix-ui/react-toolbar";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
@@ -16,76 +14,30 @@ import {
   CheckIcon,
 } from "@radix-ui/react-icons";
 
-import { Sigma } from "sigma";
-import { Attributes } from "graphology-types";
-import { useSigmaContext } from "@react-sigma/core";
-import { bindWebGLLayer, createContoursProgram } from "@sigma/layer-webgl";
-
-import { GraphologyEdgeType, GraphologyNodeType } from "@/helpers/graph";
-import {
-  CommunityCount,
-  isBreakpointState,
-  useCosmosGraphContext,
-} from "../GraphContext";
+import { isBreakpointState, useCosmosGraphContext } from "../GraphContext";
 import BreakpointRadioItem from "./components/BreakpointRadioItem";
 import BreakpointIcon from "./components/BreakpointIcon";
 import IconTooltip from "./components/IconTooltip";
-import { background, hexRgbToRgba, rgbaToString } from "../helpers";
-import {
-  getComponentName,
-  getPalette,
-  levelAlphas,
-  levelThresholds,
-} from "@/helpers/token";
-import { NodeDisplayData } from "sigma/types";
+import { getComponentName } from "@/helpers/token";
 
 const CosmosMainToolbar = () => {
-  const { sigma } = useSigmaContext<GraphologyNodeType, GraphologyEdgeType>();
   const {
     setInvertedState,
     breakpointState,
     setBreakpointState,
     currentGraphName,
     setCurrentGraphName,
-    graph,
     automaticRelayout,
     setAutomaticRelayout,
-    communities,
+    activeCommunities,
+    setActiveCommunities,
+    filteredCommunities,
+    communityPalette,
     components,
     activeComponents,
+    componentPalette,
     setActiveComponents,
   } = useCosmosGraphContext();
-
-  const [showCommunities, setShowCommunities] = useState(false);
-  const [filteredCommunities, setFilteredCommunities] = useState<
-    Record<string, CommunityCount>
-  >({});
-  const [activeCommunities, setActiveCommunities] = useState<Set<number>>(
-    new Set<number>()
-  );
-  const [palette, setPalette] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (communities) {
-      const filteredCommunities = Object.values(communities).filter(
-        (community) => community.count > 25
-      );
-      setFilteredCommunities(
-        filteredCommunities.reduce<Record<string, CommunityCount>>(
-          (acc, community) => {
-            acc[community.index] = community;
-            return acc;
-          },
-          {}
-        )
-      );
-    }
-  }, [communities]);
-
-  useEffect(() => {
-    if (filteredCommunities && Object.keys(filteredCommunities).length > 0)
-      setPalette(getPalette(Object.values(filteredCommunities)));
-  }, [filteredCommunities]);
 
   const toggleComponent = (component: string) => {
     const newActiveComponents = new Set(activeComponents);
@@ -107,99 +59,6 @@ const CosmosMainToolbar = () => {
     setActiveCommunities(newActiveCommunities);
   };
 
-  const toggleCommunities = () => {
-    if (showCommunities) {
-      sigma.setSetting("nodeReducer", null);
-      setShowCommunities(false);
-    } else {
-      const communitiesArray = Object.values(communities).filter(
-        (community) => community.count > 25
-      );
-      const palette = getPalette(communitiesArray);
-
-      const checkboxesContainer = document.createElement("div");
-      checkboxesContainer.style.position = "absolute";
-      checkboxesContainer.style.right = "10px";
-      checkboxesContainer.style.bottom = "10px";
-      document.body.append(checkboxesContainer);
-
-      communitiesArray.forEach((community, index) => {
-        const id = `cb-${community.index}`;
-        const checkboxContainer = document.createElement("div");
-
-        checkboxContainer.innerHTML += `
-      <input type="checkbox" id="${id}" name="">
-      <label for="${id}" style="color:${palette[community.index]}">${
-          community.name
-        }</label>
-    `;
-        checkboxesContainer.append(checkboxContainer);
-        const checkbox = checkboxesContainer.querySelector(
-          `#${id}`
-        ) as HTMLInputElement;
-
-        let clean: null | (() => void) = null;
-
-        const toggle = () => {
-          if (clean) {
-            clean();
-            clean = null;
-          } else {
-            clean = bindWebGLLayer(
-              `community-${community}`,
-              sigma as unknown as Sigma<Attributes, Attributes, Attributes>,
-              createContoursProgram(
-                graph.filterNodes((_, attr) => {
-                  if (
-                    attr.community &&
-                    parseInt(attr.community) === community.index
-                  )
-                    return true;
-                }),
-                {
-                  radius: 100,
-                  border: {
-                    color: rgbaToString(
-                      normal(
-                        background,
-                        hexRgbToRgba(palette[community.index], 0.8)
-                      )
-                    ),
-                    thickness: 1,
-                  },
-                  levels: levelThresholds.reduce<
-                    { color?: string | undefined; threshold: number }[]
-                  >((acc, threshold, index) => {
-                    acc.push({
-                      color: rgbaToString(
-                        normal(
-                          background,
-                          hexRgbToRgba(
-                            palette[community.index],
-                            levelAlphas[index]
-                          )
-                        )
-                      ),
-                      threshold,
-                    });
-                    return acc;
-                  }, []),
-                }
-              )
-            );
-          }
-        };
-
-        checkbox.addEventListener("change", toggle);
-
-        if (!index) {
-          checkbox.checked = true;
-          toggle();
-        }
-      });
-    }
-  };
-
   const toggleHide = () => {
     !(currentGraphName === "design-system")
       ? setCurrentGraphName("design-system")
@@ -209,6 +68,8 @@ const CosmosMainToolbar = () => {
   const setBreakpoint = (breakpoint: string) => {
     if (isBreakpointState(breakpoint)) setBreakpointState(breakpoint);
   };
+
+  // TODO add option for coloring by palette for components and communities
 
   return (
     <div className="MainToolbarWrapper">
@@ -235,8 +96,10 @@ const CosmosMainToolbar = () => {
               {Object.keys(components).map((component, index) => (
                 <DropdownMenu.CheckboxItem
                   className="DropdownMenuCheckboxItem"
+                  style={{ color: componentPalette[component] }}
                   checked={activeComponents.has(component)}
                   onCheckedChange={() => toggleComponent(component)}
+                  onSelect={(event) => event.preventDefault()}
                   key={index}
                 >
                   <DropdownMenu.ItemIndicator className="DropdownMenuItemIndicator">
@@ -273,9 +136,10 @@ const CosmosMainToolbar = () => {
               {Object.values(filteredCommunities).map((community) => (
                 <DropdownMenu.CheckboxItem
                   className="DropdownMenuCheckboxItem"
-                  style={{ color: palette[community.index] }}
+                  style={{ color: communityPalette[community.index] }}
                   checked={activeCommunities.has(community.index)}
                   onCheckedChange={() => toggleCommunity(community.index)}
+                  onSelect={(event) => event.preventDefault()}
                   key={community.index}
                 >
                   <DropdownMenu.ItemIndicator className="DropdownMenuItemIndicator">
