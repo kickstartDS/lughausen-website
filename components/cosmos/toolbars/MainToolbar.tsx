@@ -7,11 +7,11 @@ import {
   DesktopIcon,
   LaptopIcon,
   MobileIcon,
-  ScissorsIcon,
   ReloadIcon,
   DashboardIcon,
   MixIcon,
   CheckIcon,
+  CookieIcon,
 } from "@radix-ui/react-icons";
 
 import { isBreakpointState, useCosmosGraphContext } from "../GraphContext";
@@ -68,8 +68,6 @@ const CosmosMainToolbar = () => {
   const setBreakpoint = (breakpoint: string) => {
     if (isBreakpointState(breakpoint)) setBreakpointState(breakpoint);
   };
-
-  // TODO add option for coloring by palette for components and communities
 
   return (
     <div className="MainToolbarWrapper">
@@ -178,12 +176,9 @@ const CosmosMainToolbar = () => {
           <Toolbar.ToggleItem
             className="ToolbarToggleItem"
             value="ksds"
-            aria-label="Hide unconnected"
+            aria-label="Show unconnected"
           >
-            <IconTooltip
-              Icon={ScissorsIcon}
-              text="Hide unconnected ksDS token"
-            />
+            <IconTooltip Icon={CookieIcon} text="Show unconnected ksDS token" />
           </Toolbar.ToggleItem>
         </Toolbar.ToggleGroup>
         <Toolbar.Separator className="ToolbarSeparator" />

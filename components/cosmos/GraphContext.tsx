@@ -142,7 +142,8 @@ export const CosmosGraphProvider: FC<
   const [activeContours, setActiveContours] = useState<
     Record<string, null | (() => void)>
   >({});
-  const [currentGraphName, setCurrentGraphName] = useState<string>("full");
+  const [currentGraphName, setCurrentGraphName] =
+    useState<string>("design-system");
 
   const graph = props.graphs[currentGraphName];
 
